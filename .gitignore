@@ -1,0 +1,7 @@
+# Generated map: contains the text of your own instruction files
+out/
+__pycache__/
+
+# Personal, never published
+skill-tags.json
+backups/

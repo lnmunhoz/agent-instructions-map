@@ -1,0 +1,471 @@
+<meta charset="utf-8">
+<title>Agent Instructions Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky project rail on the left, the selected folder's load order stacked top to bottom on the right. */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1b2230; --muted: #5d6779; --line: #dde2ea;
+  --accent: #1f6feb; --accent-soft: #e6efff;
+  --managed: #6b7280; --user: #1f6feb; --project: #16803c; --local: #b45309; --memory: #be185d; --hook: #6d5bd0;
+  --warn-bg: #fff6e5; --warn-fg: #8a4b00; --warn-line: #f3d199;
+  --code-bg: #f1f3f7;
+  --sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f131a; --panel: #161b24; --fg: #e4e8ef; --muted: #96a0b2; --line: #273041;
+  --accent: #6ea8ff; --accent-soft: #1a2a45;
+  --managed: #9aa3b2; --user: #6ea8ff; --project: #4cc47a; --local: #f0a54a; --memory: #f472b6; --hook: #a99bff;
+  --warn-bg: #2b2112; --warn-fg: #f6c77a; --warn-line: #5a4320; --code-bg: #10151d; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f131a; --panel: #161b24; --fg: #e4e8ef; --muted: #96a0b2; --line: #273041;
+  --accent: #6ea8ff; --accent-soft: #1a2a45;
+  --managed: #9aa3b2; --user: #6ea8ff; --project: #4cc47a; --local: #f0a54a; --memory: #f472b6; --hook: #a99bff;
+  --warn-bg: #2b2112; --warn-fg: #f6c77a; --warn-line: #5a4320; --code-bg: #10151d; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 17px/1.55 var(--sans); }
+.wrap { display: grid; grid-template-columns: 300px minmax(0, 1fr) 280px; gap: 28px; max-width: none; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+aside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); align-self: start; max-height: calc(100vh - 32px);
+  display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.brand { font-weight: 700; font-size: 20px; letter-spacing: -0.01em; }
+.brand small { display: block; font-weight: 400; font-size: 13px; color: var(--muted); }
+input[type=search] { width: 100%; font: inherit; font-size: 15px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); }
+input[type=search]:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.list { overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding-right: 4px; }
+.item { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; border-radius: 7px; }
+.item:hover { background: var(--accent-soft); }
+.list button.sel { all: unset; cursor: pointer; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: baseline;
+  padding: 7px 10px; border-radius: 7px; font-size: 15px; }
+.list button.sel:focus-visible, .pin:focus-visible, .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.list button.sel[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.list button.sel .p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list button.sel .p em { font-style: normal; color: var(--muted); font-weight: 400; font-size: 12px; display: block; overflow: hidden; text-overflow: ellipsis; }
+.list .t { font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.list .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--warn-fg); margin-left: 6px; vertical-align: middle; }
+.pin { all: unset; cursor: pointer; width: 32px; height: 32px; display: grid; place-items: center; font-size: 17px; color: var(--muted); border-radius: 6px; opacity: .45; }
+.item:hover .pin, .pin[aria-pressed="true"] { opacity: 1; }
+.pin[aria-pressed="true"] { color: var(--local); }
+@media (hover: none) { .pin { opacity: .8; } }
+.toggle { all: unset; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--accent); padding: 10px 10px 4px; }
+.hint { font-size: 13px; color: var(--muted); margin: 8px 10px; }
+.group { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 12px 10px 4px; }
+
+main { min-width: 0; display: flex; flex-direction: column; gap: 22px; }
+.head h1 { font-size: 26px; line-height: 1.2; margin: 0 0 4px; letter-spacing: -0.015em; text-wrap: balance; overflow-wrap: anywhere; }
+.path { font: 13px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 10px; font-size: 15px; color: var(--muted); }
+.stats b { color: var(--fg); font-variant-numeric: tabular-nums; }
+.bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--line); margin-top: 12px; }
+.bar span { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: baseline; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs button { all: unset; cursor: pointer; padding: 8px 14px; font-size: 15px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-color: var(--accent); }
+
+h2 { font-size: 22px; margin: 0 0 10px; letter-spacing: -0.01em; }
+h2 small { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.sec { display: flex; flex-direction: column; gap: 8px; }
+.warn { background: var(--warn-bg); color: var(--warn-fg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 10px 14px; font-size: 15px; }
+.warn code, .warn .path { color: inherit; }
+
+ol.load { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; counter-reset: step; }
+ol.load > li { position: relative; padding-left: 40px; padding-bottom: 12px; }
+ol.load > li::before { counter-increment: step; content: counter(step); position: absolute; left: 0; top: 10px; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--panel); border: 1px solid var(--line); font: 600 13px/24px var(--sans); text-align: center; color: var(--muted); }
+ol.load > li::after { content: ""; position: absolute; left: 13px; top: 38px; bottom: 0; width: 1px; background: var(--line); }
+ol.load > li:last-child::after { display: none; }
+
+details.file { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--c, var(--line)); border-radius: 8px; min-width: 0; }
+details.file > summary { list-style: none; cursor: pointer; padding: 10px 14px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; align-items: center; }
+details.file > summary::-webkit-details-marker { display: none; }
+.fname { font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.chip { font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: 0.06em; color: var(--c); border: 1px solid currentColor; border-radius: 4px; padding: 1px 6px; }
+.tok { font: 13px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.sub { grid-column: 1 / -1; font: 12px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+details.file pre, pre.agent { margin: 0; padding: 14px; background: var(--code-bg); border-top: 1px solid var(--line); font: 13px/1.6 var(--mono);
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 75vh; overflow: auto; border-radius: 0 0 8px 8px; }
+.imports { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px 22px; }
+.imports .via { font: 12px var(--mono); color: var(--muted); margin-bottom: 2px; }
+.desc { grid-column: 1 / -1; font-size: 15px; color: var(--fg); opacity: .85; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+details.file[open] .desc { -webkit-line-clamp: unset; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 6px; }
+.toolbar .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 4px 0 10px; }
+.toolbar .lbl:first-child { margin-left: 0; }
+.pill { all: unset; cursor: pointer; font-size: 14px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+.pill span { color: var(--muted); font-variant-numeric: tabular-nums; margin-left: 2px; }
+.pill[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--code-bg); color: var(--muted); border: 1px solid var(--line); }
+.tag.o-mine { color: var(--project); border-color: currentColor; }
+.tag.o-adapted { color: var(--local); border-color: currentColor; }
+.tag.o-installed { color: var(--hook); border-color: currentColor; }
+.caps { display: flex; flex-direction: column; gap: 8px; }
+.fwarn { grid-column: 1 / -1; font-size: 13px; color: var(--warn-fg); }
+
+.plain { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 14px; }
+.plain .row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.plain .row:last-child { border-bottom: 0; }
+.plain .row .path { font-size: 12px; }
+.muted { color: var(--muted); font-size: 15px; }
+pre.agent { max-height: none; border: 1px solid var(--line); border-radius: 8px; }
+pre.agent .h { color: var(--accent); font-weight: 500; }
+.copy { all: unset; cursor: pointer; font-size: 14px; color: var(--accent); font-weight: 500; }
+
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); align-self: start; max-height: calc(100vh - 32px);
+  overflow-y: auto; display: flex; flex-direction: column; gap: 2px; font-size: 14px; min-width: 0; padding-bottom: 16px; }
+.toc > * { flex-shrink: 0; }
+.toc .ttl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 0 8px 6px; }
+.toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 6px; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-left: 2px solid transparent; }
+.toc a:hover { background: var(--accent-soft); color: var(--fg); }
+.toc a.f { color: var(--fg); font-weight: 600; margin-top: 8px; border-left-color: var(--c, var(--line)); border-radius: 0 6px 6px 0; }
+.toc a.f.closed { font-weight: 500; color: var(--muted); }
+.toc a.l2 { padding-left: 20px; } .toc a.l3 { padding-left: 32px; font-size: 13px; } .toc a.l4 { padding-left: 44px; font-size: 13px; }
+.toc a.on { color: var(--accent); background: var(--accent-soft); }
+.toc .empty { color: var(--muted); padding: 4px 8px; font-size: 13px; }
+pre .hd { color: var(--fg); font-weight: 600; scroll-margin-top: 12px; }
+pre .hd.hl1 { color: var(--accent); }
+pre .hd.flash { background: var(--accent-soft); border-radius: 3px; }
+details.file, pre.agent .h { scroll-margin-top: 16px; }
+@media (max-width: 1180px) { .wrap { grid-template-columns: 260px minmax(0, 1fr) 220px; } }
+@media (max-width: 960px) { .wrap { grid-template-columns: 260px minmax(0, 1fr); } .toc { display: none; } }
+@media (max-width: 820px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  aside { position: static; max-height: none; }
+  .list { max-height: 34vh; border: 1px solid var(--line); border-radius: 8px; padding: 4px; background: var(--panel); }
+  ol.load > li { padding-left: 34px; }
+}
+@media (prefers-reduced-motion: no-preference) { details.file[open] > pre { animation: fade .15s ease-out; } @keyframes fade { from { opacity: .4 } } }
+</style>
+
+<div class="wrap">
+  <aside>
+    <div class="brand">Agent Instructions Map<small id="gen">Loading…</small></div>
+    <input type="search" id="q" placeholder="Filter folders" aria-label="Filter folders">
+    <nav class="list" id="list" aria-label="Folders"></nav>
+  </aside>
+  <main id="main"><p class="muted">Loading instruction files…</p></main>
+  <aside class="toc" id="toc" aria-label="Sections"></aside>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const SCOPE = {
+  managed: { label: "Managed", color: "var(--managed)", desc: "managed policy instructions" },
+  user: { label: "User", color: "var(--user)", desc: "user's private global instructions for all projects" },
+  project: { label: "Project", color: "var(--project)", desc: "project instructions, checked into the codebase" },
+  local: { label: "Local", color: "var(--local)", desc: "user's private project instructions, not checked in" },
+  memory: { label: "Auto memory", color: "var(--memory)", desc: "user's auto-memory, persists across conversations" },
+};
+let D, cur = "__global__", tab = "order";
+let TOC = [], uid = 0, capsGroup = "topic", capsOrigin = "all";
+const originBucket = o => !o || o === "unknown" ? "other" : o === "mine" ? "mine" : o.startsWith("adapted") ? "adapted" : "installed";
+function heads(text) {
+  const out = []; let fence = false;
+  text.split("\n").forEach((ln, i) => {
+    if (/^\s*(```|~~~)/.test(ln)) { fence = !fence; return; }
+    const m = !fence && ln.match(/^(#{1,4})\s+(.+?)\s*#*\s*$/);
+    if (m) out.push({ lvl: m[1].length, text: m[2].replace(/[*_`]/g, ""), line: i });
+  });
+  return out;
+}
+// File text with each markdown heading wrapped in an anchor the outline can jump to.
+function body(text, id) {
+  const hs = heads(text), at = new Map(hs.map((h, k) => [h.line, k]));
+  const html = text.split("\n").map((ln, i) => at.has(i)
+    ? `<span class="hd hl${hs[at.get(i)].lvl}" id="${id}-${at.get(i)}">${esc(ln)}</span>` : esc(ln)).join("\n");
+  return { html, hs };
+}
+const fmt = n => n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+const short = p => p.replace(D.home, "~");
+const ago = t => { const d = (Date.now() / 1000 - t) / 86400; return d < 1 ? "today" : d < 2 ? "yesterday" : Math.round(d) + " days ago"; };
+const ftok = p => D.files[p]?.tokens ?? 0;
+const walk = (n, out = []) => { out.push(n); n.imports.forEach(c => walk(c, out)); return out; };
+
+function warnCount(p) {
+  return p.notes.length + [...p.layers, ...(p.memory ? [p.memory] : [])].flatMap(l => walk(l)).reduce((a, n) => a + n.warnings.length, 0);
+}
+
+const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+let pins = new Set(store.get("pins", [])), showAll = store.get("showAll", false);
+
+function renderList() {
+  const q = $("#q").value.toLowerCase();
+  const items = D.projects.filter(p => !q || p.cwd.toLowerCase().includes(q));
+  const row = (id, name, sub, tok, dot, pinnable = true) => `<div class="item">
+      <button class="sel" data-id="${esc(id)}" aria-current="${cur === id}">
+        <span class="p">${esc(name)}${dot ? '<span class="dot" title="Has problems"></span>' : ""}<em>${esc(sub)}</em></span><span class="t">≈${fmt(tok)}</span></button>
+      ${pinnable ? `<button class="pin" data-pin="${esc(id)}" aria-pressed="${pins.has(id)}" aria-label="${pins.has(id) ? "Unpin" : "Pin"} ${esc(name)}" title="${pins.has(id) ? "Unpin" : "Pin to top"}">${pins.has(id) ? "★" : "☆"}</button>` : ""}
+    </div>`;
+  const prow = p => row(p.cwd, p.name, p.worktreeOf ? "worktree of " + p.worktreeOf.split("/").pop() : (short(p.cwd).replace(/\/[^/]+$/, "") || "/"), p.tokens, warnCount(p));
+  const gTok = D.global.flatMap(l => walk(l)).reduce((a, n) => a + ftok(n.path), 0);
+  let h = row("__global__", "Every session", "~/.claude", gTok, false, false);
+  const pinned = items.filter(p => pins.has(p.cwd)), rest = items.filter(p => !pins.has(p.cwd));
+  if (pinned.length) h += `<div class="group">Pinned</div>` + pinned.map(prow).join("");
+  else if (!q) h += `<p class="hint">Tap ☆ on a folder to pin it here. Once you pin one, the rest are hidden.</p>`;
+  const open = q || showAll || !pins.size;
+  if (pins.size && !q) h += `<button class="toggle" id="toggleAll">${showAll ? "Hide" : "Show"} other folders (${rest.length})</button>`;
+  if (open && rest.length) {
+    const main = rest.filter(p => !p.worktreeOf), wts = rest.filter(p => p.worktreeOf);
+    if (main.length) h += `<div class="group">${q && pinned.length ? "Other matches" : "Folders · last used first"}</div>` + main.map(prow).join("");
+    if (wts.length) h += `<div class="group">Worktrees</div>` + wts.map(prow).join("");
+  }
+  if (q && !items.length) h += `<p class="hint">No folder matches “${esc(q)}”.</p>`;
+  $("#list").innerHTML = h;
+}
+
+function fileCard(n, depth = 0) {
+  const sc = SCOPE[n.scope] || SCOPE.project, f = D.files[n.path] || {};
+  const name = n.kind === "rule" ? "rule · " + n.path.split("/").pop() : n.path.split("/").pop();
+  const total = walk(n).reduce((a, c) => a + ftok(c.path), 0);
+  const via = n.ref ? `<div class="via">imported by @${esc(n.ref)}</div>` : "";
+  const id = "f" + (uid++), b = body(f.text ?? "", id);
+  TOC.push({ id, name: (n.ref ? "↳ " : "") + name, color: sc.color, hs: b.hs });
+  return `${via}<details class="file" id="${id}" style="--c:${sc.color}">
+    <summary><span class="fname"><span class="chip">${sc.label}</span>${esc(name)}${n.symlink ? '<span class="chip" style="--c:var(--muted)">symlink</span>' : ""}</span>
+      <span class="tok">≈${fmt(ftok(n.path))} tok · ${f.lines ?? 0} lines${n.imports.length ? `<br>≈${fmt(total)} with imports` : ""}</span>
+      <span class="sub">${esc(short(n.path))}${n.symlink ? " → " + esc(short(n.symlink)) : ""}${f.mtime ? " · edited " + ago(f.mtime) : ""}${f.note ? " · " + esc(f.note) : ""}</span>
+      ${n.warnings.map(w => `<span class="fwarn">⚠ ${esc(w)}</span>`).join("")}
+    </summary>
+    <pre>${b.html}</pre>
+    ${n.imports.length ? `<div class="imports">${n.imports.map(c => fileCard(c, depth + 1)).join("")}</div>` : ""}
+  </details>`;
+}
+
+function agentText(layers) {
+  // Mirrors how Claude Code hands these to the model: one "Contents of" block per file, imports after their parent.
+  return layers.flatMap(l => walk(l)).map(n => {
+    const sc = SCOPE[n.scope] || SCOPE.project, id = "a" + (uid++), b = body(D.files[n.path]?.text ?? "", id);
+    TOC.push({ id, name: (n.ref ? "↳ " : "") + n.path.split("/").pop(), color: sc.color, hs: b.hs, always: true });
+    return `<span class="h" id="${id}">Contents of ${esc(n.path)} (${esc(sc.desc)}):</span>\n\n${b.html}`;
+  }).join("\n\n");
+}
+
+const SRC = {
+  project: { label: "Project", color: "var(--project)", where: "the project's .claude folder" },
+  "project-shared": { label: "Project · .agents", color: "var(--local)", where: "the project's .agents folder (Codex and other agents)" },
+  user: { label: "Yours", color: "var(--user)", where: "~/.claude" },
+  plugin: { label: "Plugin", color: "var(--hook)", where: "installed plugins" },
+  shared: { label: "~/.agents", color: "var(--memory)", where: "~/.agents (read by Codex and other agents)" },
+};
+function capRow(c, id) {
+  const f = D.files[c.path] || {}, src = SRC[c.source] || SRC.user;
+  const off = c.source === "plugin" && c.pluginEnabled === false;
+  const mode = c.kind === "agent" ? (c.tools ? "tools: " + c.tools : "all tools") + (c.model ? " · " + c.model : "")
+    : c.auto ? "auto + /" + c.name : "only when you type /" + c.name;
+  return `<details class="file" id="${id}" style="--c:${src.color}">
+    <summary><span class="fname"><span class="chip">${esc(src.label)}</span><span style="font-family:var(--mono);font-size:15px">${esc(c.name)}</span>
+      ${c.kind === "command" ? '<span class="chip" style="--c:var(--muted)">command</span>' : ""}
+      ${off ? '<span class="chip" style="--c:var(--muted)">plugin off</span>' : ""}
+      ${c.symlink ? '<span class="chip" style="--c:var(--muted)">symlink</span>' : ""}</span>
+      <span class="tok">${esc(mode)}${c.descTokens ? `<br>≈${fmt(c.descTokens)} tok listed` : ""}</span>
+      <span class="desc">${esc(c.description || "No description.")}</span>
+      <span class="tags"><span class="tag">${esc(c.category)}</span><span class="tag o-${originBucket(c.origin)}">${esc(c.origin)}</span></span>
+      <span class="sub">${esc(short(c.path))}${c.symlink ? " → " + esc(short(c.symlink)) : ""}${f.mtime ? " · edited " + ago(f.mtime) : ""}</span>
+    </summary>
+    <pre>${esc(f.text ?? "")}</pre>
+  </details>`;
+}
+function capsView(isG, p, mode) {
+  const want = c => mode === "agents" ? c.kind === "agent" : c.kind !== "agent";
+  const all0 = [...(isG ? [] : p.caps), ...D.caps].filter(want);
+  const all = all0.filter(c => capsOrigin === "all" || originBucket(c.origin) === capsOrigin);
+  const live = all.filter(c => !(c.source === "plugin" && c.pluginEnabled === false));
+  const skills = live.filter(c => c.kind !== "agent"), agents = live.filter(c => c.kind === "agent");
+  const listed = skills.reduce((a, c) => a + (c.descTokens || 0), 0);
+  let h = mode === "agents"
+    ? `<div class="stats" style="margin-top:0"><span><b>${agents.length}</b> subagents</span></div>
+       <p class="muted">Subagents are listed for the <code>Agent</code> tool: the main session hands them work with a brief, and only their final report comes back.</p>`
+    : `<div class="stats" style="margin-top:0"><span><b>${skills.length}</b> skills &amp; commands</span>
+       <span><b>${skills.filter(c => c.auto).length}</b> the agent can pick on its own (≈${fmt(listed)} tokens of descriptions at start)</span></div>
+       <p class="muted">Skills marked <b>auto</b> show their name and description to the agent in every session, and it loads the full skill when a task matches. The others run only when you type the command.</p>`;
+  const counts = { all: all0.length, mine: 0, adapted: 0, installed: 0 };
+  all0.forEach(c => { const b = originBucket(c.origin); if (b in counts) counts[b]++; });
+  h += `<div class="toolbar"><span class="lbl">Group by</span>
+    ${[["topic", "Topic"], ["source", "Where it lives"]].map(([k, l]) => `<button class="pill" data-capsgroup="${k}" aria-pressed="${capsGroup === k}">${l}</button>`).join("")}
+    <span class="lbl">Show</span>
+    ${[["all", "All"], ["mine", "Mine"], ["adapted", "Adapted"], ["installed", "Installed"]].map(([k, l]) => `<button class="pill" data-capsorigin="${k}" aria-pressed="${capsOrigin === k}">${l} <span>${counts[k]}</span></button>`).join("")}</div>`;
+  const groups = [];
+  if (capsGroup === "topic") {
+    const COLORS = ["var(--user)", "var(--project)", "var(--local)", "var(--memory)", "var(--hook)", "var(--managed)"];
+    const cats = [...new Set(all.map(c => c.category))].sort((a, b) => a === "Uncategorized" ? 1 : b === "Uncategorized" ? -1 : a.localeCompare(b));
+    cats.forEach((cat, i) => {
+      const items = all.filter(c => c.category === cat && !(c.source === "plugin" && c.pluginEnabled === false));
+      if (items.length) groups.push({ title: cat, items: items.sort((a, b) => (a.kind === "agent") - (b.kind === "agent") || a.name.localeCompare(b.name)), color: COLORS[i % COLORS.length] });
+    });
+  }
+  const add = (title, items, color) => { if (capsGroup === "source" && items.length) groups.push({ title, items, color }); };
+  const keep = c => capsOrigin === "all" || originBucket(c.origin) === capsOrigin;
+  if (!isG) {
+    const roots = [...new Set(p.caps.map(c => c.root))];
+    roots.forEach(r => {
+      add(`Project skills · ${short(r)}`, p.caps.filter(c => c.root === r && c.kind !== "agent" && keep(c)), "var(--project)");
+      add(`Project subagents · ${short(r)}`, p.caps.filter(c => c.root === r && c.kind === "agent" && keep(c)), "var(--project)");
+    });
+  }
+  add("Your skills · ~/.claude/skills", D.caps.filter(c => c.source === "user" && c.kind !== "agent" && keep(c)), "var(--user)");
+  add("Your subagents · ~/.claude/agents", D.caps.filter(c => c.source === "user" && c.kind === "agent" && keep(c)), "var(--user)");
+  D.plugins.forEach(pl => {
+    const name = pl.key.split("@")[0];
+    add(`Plugin ${name} ${pl.version ? "v" + pl.version : ""}${pl.enabled ? "" : " · turned off"}`,
+      D.caps.filter(c => c.source === "plugin" && c.name.startsWith(name + ":") && keep(c)), "var(--hook)");
+  });
+  add("Shared skills · ~/.agents/skills", D.caps.filter(c => c.source === "shared" && keep(c)), "var(--memory)");
+
+  groups.forEach((g, gi) => {
+    const gid = "g" + (uid++);
+    TOC.push({ id: gid, name: g.title.replace(/ · .*/, "") + ` (${g.items.length})`, color: g.color, always: true,
+      hs: g.items.map(c => ({ lvl: 2, text: c.name })) });
+    h += `<div class="sec" id="${gid}" style="scroll-margin-top:16px"><h2>${esc(g.title)}<small>${g.items.length}</small></h2>
+      <div class="caps">${g.items.map((c, k) => capRow(c, gid + "-" + k)).join("")}</div></div>`;
+  });
+
+  const reg = D.registry.map(r => `<div class="row"><div><b>${esc(r.name)}</b> · ${esc(r.harness || "")}${r.effort ? " · effort " + esc(r.effort) : ""}
+      <div class="path">${esc(short(r.path))}</div></div><span class="tok">${r.instructions ? "≈" + fmt(ftok(r.instructions)) + " tok" : ""}</span></div>`);
+  const other = D.agentsOther.map(o => `<div class="row"><div>${esc(o.split("/").pop())}<div class="path">${esc(short(o))}</div></div><span class="tok">≈${fmt(ftok(o))} tok</span></div>`);
+  const off = D.plugins.filter(pl => !pl.count).map(pl => pl.key.split("@")[0]);
+  if (mode === "agents" && (reg.length || other.length)) {
+    const gid = "g" + (uid++);
+    TOC.push({ id: gid, name: "~/.agents registry & notes", color: "var(--memory)", always: true, hs: [] });
+    h += `<div class="sec" id="${gid}"><h2>Other things in ~/.agents<small>agent registry and notes another tool keeps there</small></h2>
+      <div class="plain">${[...reg, ...other].join("")}</div></div>`;
+  }
+  if (mode === "skills" && off.length) h += `<p class="muted">Plugins with no skills or agents (they add other things, like a language server or hooks): ${off.map(esc).join(", ")}.</p>`;
+  return h;
+}
+
+function render() {
+  TOC = []; uid = 0;
+  const isG = cur === "__global__";
+  const p = isG ? null : D.projects.find(x => x.cwd === cur);
+  if (!isG && !p) { cur = "__global__"; return render(); }
+  const layers = isG ? D.global : [...D.global, ...p.layers, ...(p.memory ? [p.memory] : [])];
+  const all = layers.flatMap(l => walk(l));
+  const total = all.reduce((a, n) => a + ftok(n.path), 0);
+  const byScope = {};
+  all.forEach(n => byScope[n.scope] = (byScope[n.scope] || 0) + ftok(n.path));
+  const s = D.settings;
+
+  let h = `<div class="head"><h1>${isG ? "Every session" : esc(p.name)}</h1>
+    <div class="path">${isG ? "Loaded in every folder before the project's own files · ~/.claude" : esc(short(p.cwd))}</div>
+    <div class="stats"><span><b>≈${fmt(total)}</b> tokens at start</span><span><b>${all.length}</b> files</span>
+    ${isG ? "" : `<span>Reads <b>${p.mode}</b> files</span><span>${p.sessions} sessions · last ${ago(p.lastUsed)}</span>`}</div>
+    <div class="bar">${Object.entries(byScope).map(([k, v]) => `<span style="width:${v / total * 100}%;background:${SCOPE[k].color}" title="${SCOPE[k].label}: ≈${fmt(v)}"></span>`).join("")}</div>
+    <div class="legend">${Object.entries(byScope).map(([k, v]) => `<span><i style="background:${SCOPE[k].color}"></i>${SCOPE[k].label} ≈${fmt(v)}</span>`).join("")}</div></div>`;
+
+  const notes = isG ? [] : p.notes;
+  if (notes.length) h += `<div class="sec">${notes.map(n => `<div class="warn"><b>${esc(short(n.path))}</b><br>${esc(n.text)}</div>`).join("")}</div>`;
+
+  h += `<div class="tabs" role="tablist"><button role="tab" data-tab="order" aria-selected="${tab === "order"}">Load order</button>
+    <button role="tab" data-tab="skills" aria-selected="${tab === "skills"}">Skills</button>
+    <button role="tab" data-tab="agents" aria-selected="${tab === "agents"}">Agents</button>
+    <button role="tab" data-tab="agent" aria-selected="${tab === "agent"}">What the agent reads</button></div>`;
+
+  if (tab === "caps") tab = "skills";
+  if (tab === "skills" || tab === "agents") {
+    h += capsView(isG, p, tab);
+  } else if (tab === "agent") {
+    h += `<div class="sec"><div class="muted">All files below, in order, as one block of text the model gets at session start. <button class="copy" id="copy">Copy</button></div>
+      <pre class="agent" id="agentpre">${agentText(layers) || "Nothing loads here."}</pre></div>`;
+  } else {
+    h += `<div class="sec"><h2>Loaded at start<small>top is read first, bottom last</small></h2>
+      ${layers.length ? `<ol class="load">${layers.map(l => `<li>${fileCard(l)}</li>`).join("")}</ol>` : `<p class="muted">No instruction files load in this folder.</p>`}</div>`;
+
+    const extra = [];
+    s.sessionStartHooks.forEach(k => extra.push(`<div class="row"><div>SessionStart hook<div class="path">${esc(short(k.command))}</div></div><span class="tok">varies</span></div>`));
+    if (s.outputStyle) extra.push(`<div class="row"><div>Output style: <b>${esc(s.outputStyle)}</b><div class="path">${s.outputStyleFile ? esc(short(s.outputStyleFile)) : "from a plugin or built in"}</div></div><span class="tok">system prompt</span></div>`);
+    extra.push(`<div class="row"><div>Auto memory (MEMORY.md)<div class="path">${s.autoMemory === false ? "off in ~/.claude/settings.json (autoMemoryEnabled: false)" : "on"}</div></div><span class="tok">${s.autoMemory === false ? "off" : "on"}</span></div>`);
+    h += `<div class="sec"><h2>Also added at start<small>not instruction files, but the agent sees them</small></h2><div class="plain">${extra.join("")}</div></div>`;
+
+    if (!isG) {
+      const later = [...p.later.map(x => `<div class="row"><div>${esc(x.split("/").pop())}<div class="path">${esc(short(x))}</div></div><span class="tok">≈${fmt(ftok(x)) || "?"}</span></div>`),
+        ...p.scopedRules.map(r => `<div class="row"><div>Rule for ${esc(r.paths.join(", "))}<div class="path">${esc(short(r.path))}</div></div><span class="tok">≈${fmt(ftok(r.path))}</span></div>`)];
+      h += `<div class="sec"><h2>Loads later<small>when the agent opens a file in that folder or matching that rule</small></h2>
+        ${later.length ? `<div class="plain">${later.join("")}</div>` : `<p class="muted">Nothing in subfolders (checked 4 levels deep).</p>`}</div>`;
+    }
+    h += `<p class="muted">Rules from the <a href="https://code.claude.com/docs/en/memory" style="color:var(--accent)">Claude Code memory docs ↗</a>. Setting: Project instructions = <code>${esc(s.instructionFiles)}</code>. Tokens are estimates (characters ÷ 3.7). To confirm a live session, run <code>/context all</code> in it.</p>`;
+  }
+  $("#main").innerHTML = h;
+  renderToc();
+  const c = $("#copy");
+  if (c) c.onclick = async () => { const t = $("#agentpre").innerText; try { await navigator.clipboard.writeText(t); c.textContent = "Copied"; } catch { const r = document.createRange(); r.selectNodeContents($("#agentpre")); getSelection().removeAllRanges(); getSelection().addRange(r); c.textContent = "Selected, press ⌘C"; } };
+}
+
+$("#list").addEventListener("click", e => {
+  const pin = e.target.closest("[data-pin]");
+  if (pin) { const id = pin.dataset.pin; pins.has(id) ? pins.delete(id) : pins.add(id); store.set("pins", [...pins]); renderList(); return; }
+  if (e.target.closest("#toggleAll")) { showAll = !showAll; store.set("showAll", showAll); renderList(); return; }
+  const b = e.target.closest("button[data-id]"); if (!b) return;
+  cur = b.dataset.id; store.set("cur", cur); renderList(); render();
+  if (innerWidth < 820) $("#main").scrollIntoView({ behavior: "smooth" });
+});
+$("#main").addEventListener("click", e => {
+  const g = e.target.closest("[data-capsgroup]"); if (g) { capsGroup = g.dataset.capsgroup; store.set("capsGroup", capsGroup); return render(); }
+  const o = e.target.closest("[data-capsorigin]"); if (o) { capsOrigin = o.dataset.capsorigin; store.set("capsOrigin", capsOrigin); return render(); }
+  const t = e.target.closest("[data-tab]"); if (!t) return; tab = t.dataset.tab; render();
+});
+$("#q").addEventListener("input", renderList);
+
+function renderToc() {
+  const items = TOC.map(t => {
+    const el = document.getElementById(t.id), open = t.always || el?.open;
+    let h = `<a class="f${open ? "" : " closed"}" data-go="${t.id}" style="--c:${t.color}" title="${esc(t.name)}">${esc(t.name)}</a>`;
+    if (open) h += t.hs.map((x, k) => `<a class="l${x.lvl}" data-go="${t.id}-${k}" title="${esc(x.text)}">${esc(x.text)}</a>`).join("");
+    return h;
+  });
+  $("#toc").innerHTML = `<div class="ttl">${tab === "agent" ? "Files and sections" : (tab === "skills" || tab === "agents") ? "Groups" : "Files · open one to see its sections"}</div>`
+    + (items.join("") || `<div class="empty">No files load here.</div>`);
+}
+$("#toc").addEventListener("click", e => {
+  const a = e.target.closest("[data-go]"); if (!a) return;
+  const el = document.getElementById(a.dataset.go); if (!el) return;
+  // Open the file card (and any card it's imported into) before jumping.
+  for (let d = el.closest("details"); d; d = d.parentElement.closest("details")) d.open = true;
+  if (el.tagName === "DETAILS") el.open = true;
+  el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  if (el.classList.contains("hd")) { el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200); }
+  document.querySelectorAll("#toc a.on").forEach(x => x.classList.remove("on")); a.classList.add("on");
+});
+$("#main").addEventListener("toggle", () => renderToc(), true);
+
+// Live reload: when index.html or data.json changes on disk, reload and keep your place.
+const stamps = {};
+async function changed(url) {
+  try {
+    const r = await fetch(url, { method: "HEAD", cache: "no-store" });
+    const m = r.headers.get("Last-Modified") + "|" + r.headers.get("Content-Length");
+    const was = stamps[url]; stamps[url] = m; return was !== undefined && was !== m;
+  } catch { return false; }
+}
+function saveView() {
+  const open = [...document.querySelectorAll("details.file[open] .sub")].map(e => e.textContent);
+  try { sessionStorage.setItem("view", JSON.stringify({ tab, y: scrollY, open })); } catch {}
+}
+setInterval(async () => {
+  const a = await changed("index.html"), b = await changed("data.json");
+  if (a || b) { saveView(); location.reload(); }
+}, 1500);
+
+fetch("data.json", { cache: "no-store" }).then(r => r.json()).then(d => {
+  D = d;
+  cur = store.get("cur", cur); capsGroup = store.get("capsGroup", capsGroup); capsOrigin = store.get("capsOrigin", capsOrigin);
+  const dt = new Date(d.generated * 1000);
+  $("#gen").textContent = `Scanned ${dt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} · ${d.projects.length} folders · Claude Code ${d.claudeVersion ?? ""}`;
+  let v = null; try { v = JSON.parse(sessionStorage.getItem("view")); sessionStorage.removeItem("view"); } catch {}
+  if (v) tab = v.tab || tab;
+  renderList(); render();
+  if (v) {
+    document.querySelectorAll("details.file").forEach(el => { if (v.open.includes(el.querySelector(".sub")?.textContent)) el.open = true; });
+    renderToc(); scrollTo(0, v.y);
+  }
+}).catch(() => { $("#main").innerHTML = `<div class="warn">Couldn't load data.json. Run <code>python3 build.py</code> and publish again.</div>`; });
+</script>

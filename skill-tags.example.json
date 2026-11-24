@@ -1,0 +1,10 @@
+{
+  "_about": "Labels for skills you didn't write, so updates to them don't wipe the labels. Copy this file to skill-tags.json and edit it. Skills you own can carry `metadata: {category, origin}` in their SKILL.md frontmatter instead, which wins over this file. Keys under `skills` are skill names; a trailing * matches a prefix. Keys under `plugins` are plugin names mapped to a category.",
+  "skills": {
+    "seo-*": { "category": "SEO", "origin": "installed: some-seo-pack" },
+    "vercel-cli": { "category": "Machine & setup", "origin": "installed: vercel" }
+  },
+  "plugins": {
+    "my-design-plugin": "Design"
+  }
+}
