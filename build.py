@@ -500,6 +500,9 @@ def main():
     g_caps, plugins, registry, agents_other = global_capabilities()
     settings = settings_info()
     projects = []
+    # Files already loaded through an @import (e.g. ~/.agents/AGENTS.md) aren't "other" notes.
+    loaded = {os.path.realpath(n["path"]) for l in g_layers for n in walk(l)}
+    agents_other = [o for o in agents_other if os.path.realpath(o) not in loaded]
     for p in discover_projects():
         layers, scoped, notes, mode = project_layers(p["cwd"])
         mem = auto_memory(p["cwd"])
